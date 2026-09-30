@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Friday Night Flag Football Schedule Planner</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons for clean sports & UI iconography -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            fieldGreen: '#10b981',
+            brandBlue: '#2563eb',
+            pitchDark: '#0b0f17',
+            cardBg: '#161f30',
+            slotBorder: '#2a374f'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .drag-ghost {
+      opacity: 0.4;
+      transform: scale(0.98);
+    }
+    .drag-over-slot {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.12) !important;
+      box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.25);
+    }
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+      }
+      .print-invert {
+        background-color: white !important;
+        border: 1px solid #ccc !important;
+        color: black !important;
+      }
+      .print-card {
+        background: #f8fafc !important;
+        border: 1px solid #94a3b8 !important;
+        color: #0f172a !important;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-lg backdrop-blur-md bg-opacity-95">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black text-xl">
+          <i class="ph-bold ph-football"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            Flag Schedule Planner
+            <span class="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">2 Fields • 8 Weeks</span>
+          </h1>
+          <p class="text-xs text-slate-400">Discovery Park 1 & 2 • Friday Evenings (Oct 2 – Nov 20)</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap no-print">
+        <button onclick="openAddGameModal()" class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-blue-600/30">
+          <i class="ph-bold ph-plus-circle text-sm"></i>
+          <span>Add Game</span>
+        </button>
+        <button onclick="autoFillRoundRobin()" class="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold px-3 py-2 rounded-lg transition" title="Fill remaining blank weeks with balanced rotation">
+          <i class="ph-bold ph-magic-wand text-sm"></i>
+          <span>Auto-Populate 4–7</span>
+        </button>
+        <button onclick="exportCSV()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold px-2.5 py-2 rounded-lg transition">
+          <i class="ph-bold ph-file-csv text-sm"></i>
+          <span>CSV</span>
+        </button>
+        <button onclick="exportJSON()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold px-2.5 py-2 rounded-lg transition">
+          <i class="ph-bold ph-export text-sm"></i>
+          <span>Backup</span>
+        </button>
+        <label class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold px-2.5 py-2 rounded-lg transition cursor-pointer">
+          <i class="ph-bold ph-folder-open text-sm"></i>
+          <span>Restore</span>
+          <input type="file" id="importInput" accept=".json" class="hidden" onchange="importJSON(event)">
+        </label>
+        <button onclick="window.print()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold px-2.5 py-2 rounded-lg transition">
+          <i class="ph-bold ph-printer text-sm"></i>
+          <span>Print / PDF</span>
+        </button>
+        <button onclick="resetToOfficial()" class="flex items-center gap-1 text-rose-400 hover:text-rose-300 text-xs font-medium px-2 py-1" title="Reset back to initial Weeks 1-3 baseline">
+          <i class="ph-bold ph-arrow-counter-clockwise text-sm"></i>
+          <span>Reset</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 flex flex-col gap-5">
+    
+    <!-- Week Selector Navigation -->
+    <div class="flex items-center justify-between gap-3 overflow-x-auto pb-1 no-print border-b border-slate-800/80">
+      <div class="flex items-center gap-2" id="weekTabsContainer">
+        <!-- Week buttons injected by JS -->
+      </div>
+      <div class="text-xs text-slate-400 font-medium whitespace-nowrap pl-4 flex items-center gap-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="activeWeekDateBadge">Fri Oct 2</span>
+      </div>
+    </div>
+
+    <!-- Conflicts / Stats Warning Banner -->
+    <div id="conflictAlertBanner" class="hidden rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 flex items-start gap-3 text-amber-200 text-xs leading-relaxed transition-all duration-300">
+      <i class="ph-fill ph-warning text-lg text-amber-400 flex-shrink-0 mt-0.5"></i>
+      <div id="conflictAlertList" class="flex-1 space-y-1"></div>
+    </div>
+
+    <!-- Layout Grid: Time Slots Matrix + Unassigned/Bench Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      
+      <section class="lg:col-span-9 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2" id="currentWeekTitle">
+              Week 1 Field Matrix
+            </h2>
+            <p class="text-xs text-slate-400">Drag any matchup card to another slot or field. Drop on an existing game to swap them.</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 font-semibold" id="scheduledCountBadge">
+              5/8 Games Filled
+            </span>
+            <span class="flex items-center gap-1.5 text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-semibold" id="openCountBadge">
+              3 Open Slots
+            </span>
+          </div>
+        </div>
+
+        <!-- Field Columns Header -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-2 font-bold text-xs uppercase tracking-wider text-slate-400 px-1">
+          <div class="md:col-span-2 hidden md:block">Time Window</div>
+          <div class="md:col-span-5 bg-slate-800/80 border border-slate-700/60 rounded-lg p-2.5 flex items-center justify-between text-blue-300">
+            <span class="flex items-center gap-1.5"><i class="ph-bold ph-map-pin"></i> Discovery 1</span>
+            <span class="text-[10px] lowercase bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-normal">Field A</span>
+          </div>
+          <div class="md:col-span-5 bg-slate-800/80 border border-slate-700/60 rounded-lg p-2.5 flex items-center justify-between text-emerald-300">
+            <span class="flex items-center gap-1.5"><i class="ph-bold ph-map-pin"></i> Discovery 2</span>
+            <span class="text-[10px] lowercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-normal">Field B</span>
+          </div>
+        </div>
+
+        <!-- Schedule Slots Rows -->
+        <div class="space-y-3" id="scheduleMatrix">
+          <!-- 4 Time Rows (5:30, 6:30, 7:30, 8:30) injected via JavaScript -->
+        </div>
+      </section>
+
+      <aside class="lg:col-span-3 space-y-4">
+        
+        <!-- Staging / Unassigned / Byes Bench -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <i class="ph-bold ph-pause-circle text-amber-400"></i>
+              <span>Byes / Staged Games</span>
+            </h3>
+            <span id="stagedCount" class="text-xs bg-slate-800 text-slate-400 font-semibold px-2 py-0.5 rounded-full">0</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mb-3 leading-snug">
+            Drag games here to bench them for a Bye, or drag them back into any open field slot.
+          </p>
+
+          <div 
+            id="benchDropZone"
+            class="min-h-[140px] border-2 border-dashed border-slate-700/80 rounded-xl p-2.5 flex flex-col gap-2 bg-slate-950/40 transition-colors"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDropOnBench(event)">
+            <!-- Benched matches injected here -->
+          </div>
+        </div>
+
+        <!-- Available League Team Directory & Quick Add helper -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl text-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-slate-200 flex items-center gap-2">
+              <i class="ph-bold ph-users-three text-blue-400"></i>
+              <span>Teams in League (14)</span>
+            </h3>
+            <span class="text-[10px] text-slate-400 font-medium">Click to filter</span>
+          </div>
+
+          <div class="space-y-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">6U / 7U Division</span>
+              <div class="flex flex-wrap gap-1 mt-1" id="badgeList6U"></div>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">8U - 11U Division</span>
+              <div class="flex flex-wrap gap-1 mt-1" id="badgeList8U"></div>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">12U Division</span>
+              <div class="flex flex-wrap gap-1 mt-1" id="badgeList12U"></div>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-800">
+            <button onclick="openAddGameModal('', '', 'Guest/Tourney')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-medium flex items-center justify-center gap-1.5 transition text-xs border border-slate-700/80">
+              <i class="ph-bold ph-handshake text-emerald-400"></i>
+              <span>Bring in Outside Guest Team</span>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+  </main>
+
+  <div id="gameModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 text-slate-100 transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center gap-2" id="modalTitle">
+          <i class="ph-bold ph-calendar-plus text-blue-400"></i>
+          <span>Schedule Game</span>
+        </h3>
+        <button onclick="closeGameModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <form id="gameForm" onsubmit="saveGameModal(event)" class="mt-4 space-y-4 text-xs">
+        <input type="hidden" id="modalGameId">
+        <input type="hidden" id="modalTargetSlot">
+
+        <!-- Division & Match Type -->
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Division</label>
+          <div class="grid grid-cols-4 gap-1.5">
+            <label class="cursor-pointer border border-slate-700 rounded-lg p-2 text-center has-[:checked]:border-rose-500 has-[:checked]:bg-rose-500/20 has-[:checked]:text-rose-300">
+              <input type="radio" name="modalDivision" value="6U/7U" class="hidden" checked onchange="updateTeamDropdownOptions()">
+              <span class="font-bold">6U / 7U</span>
+            </label>
+            <label class="cursor-pointer border border-slate-700 rounded-lg p-2 text-center has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/20 has-[:checked]:text-amber-300">
+              <input type="radio" name="modalDivision" value="8U-11U" class="hidden" onchange="updateTeamDropdownOptions()">
+              <span class="font-bold">8U - 11U</span>
+            </label>
+            <label class="cursor-pointer border border-slate-700 rounded-lg p-2 text-center has-[:checked]:border-sky-500 has-[:checked]:bg-sky-500/20 has-[:checked]:text-sky-300">
+              <input type="radio" name="modalDivision" value="12U" class="hidden" onchange="updateTeamDropdownOptions()">
+              <span class="font-bold">12U</span>
+            </label>
+            <label class="cursor-pointer border border-slate-700 rounded-lg p-2 text-center has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-500/20 has-[:checked]:text-emerald-300">
+              <input type="radio" name="modalDivision" value="Guest/Tourney" class="hidden" onchange="updateTeamDropdownOptions()">
+              <span class="font-bold">Guest / Exh</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Home Team -->
+        <div class="space-y-1">
+          <label class="block font-semibold text-slate-300">Home Team</label>
+          <div class="grid grid-cols-1 gap-1.5">
+            <select id="modalHomeSelect" onchange="handleTeamSelectChange('Home')" class="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+              <!-- populated dynamically -->
+            </select>
+            <input type="text" id="modalHomeCustom" placeholder="Or enter custom / tournament team name..." class="hidden bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <!-- Away Team -->
+        <div class="space-y-1">
+          <label class="block font-semibold text-slate-300">Away Team</label>
+          <div class="grid grid-cols-1 gap-1.5">
+            <select id="modalAwaySelect" onchange="handleTeamSelectChange('Away')" class="bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+              <!-- populated dynamically -->
+            </select>
+            <input type="text" id="modalAwayCustom" placeholder="Or enter custom / tournament team name..." class="hidden bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <!-- Time, Field, and Week assignment -->
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Week</label>
+            <select id="modalWeekSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="1">Wk 1 (10/2)</option>
+              <option value="2">Wk 2 (10/9)</option>
+              <option value="3">Wk 3 (10/16)</option>
+              <option value="4">Wk 4 (10/23)</option>
+              <option value="5">Wk 5 (10/30)</option>
+              <option value="6">Wk 6 (11/6)</option>
+              <option value="7">Wk 7 (11/13)</option>
+              <option value="8">Wk 8 Playoffs (11/20)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Time</label>
+            <select id="modalTimeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="5:30 PM">5:30 PM</option>
+              <option value="6:30 PM">6:30 PM</option>
+              <option value="7:30 PM">7:30 PM</option>
+              <option value="8:30 PM">8:30 PM</option>
+              <option value="BENCH">Staging / Bye</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Field</label>
+            <select id="modalFieldSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="Discovery 1">Discovery 1</option>
+              <option value="Discovery 2">Discovery 2</option>
+              <option value="BENCH">Staging Area</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Notes / Match Label -->
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Notes / Match Label (Optional)</label>
+          <input type="text" id="modalNotes" placeholder="e.g. Scrimmage, Playoff Semifinal, Double Header" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+          <button type="button" id="modalDeleteBtn" onclick="deleteCurrentModalGame()" class="text-rose-400 hover:text-rose-300 flex items-center gap-1 font-semibold hidden">
+            <i class="ph-bold ph-trash"></i>
+            <span>Remove Game</span>
+          </button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button type="button" onclick="closeGameModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition">
+              Cancel
+            </button>
+            <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition shadow-md shadow-blue-600/30">
+              Save Game
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toastMessage" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs">
+    <i id="toastIcon" class="ph-bold ph-check-circle text-emerald-400 text-lg"></i>
+    <span id="toastText">Notification message</span>
+  </div>
+
+  <script>
+    /* Division Preset Data */
+    const LEAGUE_TEAMS = {
+      "6U/7U": [
+        "SOG Seahawks 7U",
+        "Ruthless 7U",
+        "Ruthless 6U",
+        "Little Legends 6U"
+      ],
+      "8U-11U": [
+        "Spartans 8-9U",
+        "Little Legends 9U",
+        "Spartans 10-11U",
+        "Little Legends 10-11U",
+        "Ruthless White 10U",
+        "Ruthless Red 10U"
+      ],
+      "12U": [
+        "Spartans 12U Gold",
+        "Spartans 12U Black",
+        "Queen Cobras 12U",
+        "Ruthless 12U"
+      ]
+    };
+
+    const WEEKS_METADATA = [
+      { num: 1, date: "Fri 10/2", label: "Week 1" },
+      { num: 2, date: "Fri 10/9", label: "Week 2" },
+      { num: 3, date: "Fri 10/16", label: "Week 3" },
+      { num: 4, date: "Fri 10/23", label: "Week 4" },
+      { num: 5, date: "Fri 10/30", label: "Week 5" },
+      { num: 6, date: "Fri 11/6", label: "Week 6" },
+      { num: 7, date: "Fri 11/13", label: "Week 7" },
+      { num: 8, date: "Fri 11/20", label: "Week 8 Playoffs" }
+    ];
+
+    const TIME_SLOTS = ["5:30 PM", "6:30 PM", "7:30 PM", "8:30 PM"];
+    const FIELDS = ["Discovery 1", "Discovery 2"];
+
+    /* Initial state matching user screenshots for Weeks 1, 2, 3 and empty templates for 4-8 */
+    function getInitialSchedule() {
+      return {
+        // Week 1 (Oct 2)
+        1: [
+          { id: "g_1_1", home: "SOG Seahawks 7U", away: "Ruthless 7U", division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "7U" },
+          { id: "g_1_2", home: "Ruthless 6U", away: "Little Legends 6U", division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "6U" },
+          { id: "g_1_3", home: "Spartans 8-9U", away: "Little Legends 9U", division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "8-9U" },
+          { id: "g_1_4", home: "Spartans 12U Gold", away: "Ruthless 12U", division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U" },
+          { id: "g_1_5", home: "Spartans 10-11U", away: "Ruthless White 10U", division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "10-11U" },
+          { id: "g_1_6", home: "Queen Cobras 12U", away: "Spartans 12U Black", division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U" },
+          { id: "g_1_7", home: "Ruthless Red 10U", away: "Little Legends 10-11U", division: "8U-11U", time: "8:30 PM", field: "Discovery 2", notes: "10-11U" }
+        ],
+        // Week 2 (Oct 9)
+        2: [
+          { id: "g_2_1", home: "Ruthless 7U", away: "Little Legends 6U", division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "6/7U" },
+          { id: "g_2_2", home: "Ruthless Red 10U", away: "Spartans 10-11U", division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "10-11U" },
+          { id: "g_2_3", home: "Little Legends 9U", away: "Ruthless White 10U", division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "9-10U" },
+          { id: "g_2_4", home: "Spartans 12U Gold", away: "Queen Cobras 12U", division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U" },
+          { id: "g_2_5", home: "Little Legends 10-11U", away: "Spartans 8-9U", division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "8-11U" },
+          { id: "g_2_6", home: "Spartans 12U Black", away: "Ruthless 12U", division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U" },
+          // Staged / Bye Week 2 from screenshot
+          { id: "g_2_7", home: "Ruthless 6U", away: "Bye Team", division: "6U/7U", time: "BENCH", field: "BENCH", notes: "Week 2 Bye" },
+          { id: "g_2_8", home: "SOG Seahawks 7U", away: "Bye Team", division: "6U/7U", time: "BENCH", field: "BENCH", notes: "Week 2 Bye" }
+        ],
+        // Week 3 (Oct 16)
+        3: [
+          { id: "g_3_1", home: "Little Legends 6U", away: "SOG Seahawks 7U", division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "6/7U" },
+          { id: "g_3_2", home: "Ruthless 6U", away: "Ruthless 7U", division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "6/7U" },
+          { id: "g_3_3", home: "Little Legends 10-11U", away: "Spartans 10-11U", division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "10-11U" },
+          { id: "g_3_4", home: "Ruthless White 10U", away: "Spartans 8-9U", division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "8-10U" },
+          { id: "g_3_5", home: "Spartans 12U Black", away: "Spartans 12U Gold", division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U" },
+          { id: "g_3_6", home: "Little Legends 9U", away: "Ruthless Red 10U", division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "9-10U" },
+          { id: "g_3_7", home: "Ruthless 12U", away: "Queen Cobras 12U", division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U" }
+        ],
+        // Blank initial templates for Weeks 4-8
+        4: [],
+        5: [],
+        6: [],
+        7: [],
+        8: []
+      };
+    }
+
+    /* State Manager */
+    const STORAGE_KEY = "FNF_SCHEDULE_PLANNER_2026";
+    let scheduleData = loadStoredSchedule();
+    let currentWeek = 1;
+    let draggedGameId = null;
+
+    function loadStoredSchedule() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (err) {
+        console.error("Failed to load local storage:", err);
+      }
+      return getInitialSchedule();
+    }
+
+    function saveScheduleState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(scheduleData));
+      } catch (err) {
+        console.error("Failed to save state:", err);
+      }
+      render();
+    }
+
+    function render() {
+      renderWeekTabs();
+      renderMatrix();
+      renderBench();
+      renderBadges();
+      checkConflicts();
+    }
+
+    function renderWeekTabs() {
+      const container = document.getElementById("weekTabsContainer");
+      container.innerHTML = "";
+
+      WEEKS_METADATA.forEach(w => {
+        const isActive = w.num === currentWeek;
+        const gameCount = (scheduleData[w.num] || []).filter(g => g.time !== "BENCH").length;
+
+        const btn = document.createElement("button");
+        btn.onclick = () => switchWeek(w.num);
+        btn.className = `flex flex-col items-start px-3.5 py-1.5 rounded-xl border text-xs transition-all whitespace-nowrap ${
+          isActive 
+            ? "bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-600/30" 
+            : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white"
+        }`;
+        btn.innerHTML = `
+          <div class="flex items-center gap-1.5">
+            <span>${w.label}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-blue-800 text-blue-200' : 'bg-slate-800 text-slate-400'}">${gameCount}/8</span>
+          </div>
+          <span class="text-[10px] font-normal ${isActive ? 'text-blue-100' : 'text-slate-500'}">${w.date}</span>
+        `;
+        container.appendChild(btn);
+      });
+
+      const currentMeta = WEEKS_METADATA.find(w => w.num === currentWeek) || WEEKS_METADATA[0];
+      document.getElementById("currentWeekTitle").innerText = `${currentMeta.label} Field Matrix • ${currentMeta.date}`;
+      document.getElementById("activeWeekDateBadge").innerText = `${currentMeta.date} (Discovery Park)`;
+    }
+
+    function renderMatrix() {
+      const matrix = document.getElementById("scheduleMatrix");
+      matrix.innerHTML = "";
+
+      const currentGames = scheduleData[currentWeek] || [];
+      const scheduledGames = currentGames.filter(g => g.time !== "BENCH");
+      const openSlotsCount = 8 - scheduledGames.length;
+
+      document.getElementById("scheduledCountBadge").innerText = `${scheduledGames.length}/8 Games Scheduled`;
+      document.getElementById("openCountBadge").innerText = `${openSlotsCount} Slots Open`;
+
+      TIME_SLOTS.forEach(time => {
+        const row = document.createElement("div");
+        row.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch";
+
+        // Time Label Column
+        const timeCol = document.createElement("div");
+        timeCol.className = "md:col-span-2 flex items-center justify-between md:justify-center md:flex-col p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 font-bold text-slate-300 text-xs";
+        timeCol.innerHTML = `
+          <span class="flex items-center gap-1 text-slate-200"><i class="ph-bold ph-clock text-blue-400"></i> ${time}</span>
+          <span class="text-[10px] font-normal text-slate-500 md:mt-0.5">60 Min</span>
+        `;
+        row.appendChild(timeCol);
+
+        // Fields (Discovery 1 and Discovery 2)
+        FIELDS.forEach(field => {
+          const slotCol = document.createElement("div");
+          slotCol.className = "md:col-span-5";
+
+          const game = currentGames.find(g => g.time === time && g.field === field);
+
+          const slotContainer = document.createElement("div");
+          slotContainer.className = `h-full min-h-[96px] rounded-xl border p-2.5 flex flex-col justify-center transition-all relative ${
+            game 
+              ? "bg-slate-800/80 border-slate-700/80 shadow-md" 
+              : "bg-emerald-950/10 border-dashed border-emerald-500/40 hover:border-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+          }`;
+
+          // Slot Drag & Drop listeners
+          slotContainer.dataset.time = time;
+          slotContainer.dataset.field = field;
+          slotContainer.ondragover = (e) => handleDragOver(e);
+          slotContainer.ondragleave = (e) => handleDragLeave(e);
+          slotContainer.ondrop = (e) => handleDropOnSlot(e, time, field);
+
+          if (game) {
+            // Render Scheduled Game Card
+            slotContainer.appendChild(createGameCardElement(game));
+          } else {
+            // Render Open Slot Action
+            slotContainer.innerHTML = `
+              <div onclick="openAddGameModal('${time}', '${field}')" class="text-center py-2 text-emerald-400 flex flex-col items-center justify-center gap-1 select-none">
+                <span class="flex items-center gap-1 font-bold text-xs"><i class="ph-bold ph-plus-circle text-base"></i> Open Game Slot</span>
+                <span class="text-[10px] text-slate-400">Click to add match or drag game here</span>
+              </div>
+            `;
+          }
+
+          slotCol.appendChild(slotContainer);
+          row.appendChild(slotCol);
+        });
+
+        matrix.appendChild(row);
+      });
+    }
+
+    function createGameCardElement(game) {
+      const card = document.createElement("div");
+      card.draggable = true;
+      card.className = "w-full h-full flex flex-col justify-between cursor-grab active:cursor-grabbing group p-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-blue-500 transition-all";
+      card.dataset.gameId = game.id;
+
+      card.ondragstart = (e) => handleDragStart(e, game.id);
+      card.ondragend = (e) => handleDragEnd(e);
+
+      // Division badge colors
+      let divBadgeClass = "bg-purple-500/20 text-purple-300 border-purple-500/30";
+      if (game.division === "6U/7U") divBadgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/30";
+      else if (game.division === "8U-11U") divBadgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+      else if (game.division === "12U") divBadgeClass = "bg-sky-500/20 text-sky-300 border-sky-500/30";
+      else if (game.division === "Guest/Tourney") divBadgeClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between gap-1 mb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${divBadgeClass}">
+              ${escapeHtml(game.division || "Div")}
+            </span>
+            ${game.notes ? `<span class="text-[10px] text-slate-400 truncate max-w-[120px] font-medium">• ${escapeHtml(game.notes)}</span>` : ""}
+          </div>
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity no-print">
+            <button onclick="event.stopPropagation(); editGame('${game.id}')" title="Edit Game" class="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800">
+              <i class="ph-bold ph-pencil-simple text-xs"></i>
+            </button>
+            <button onclick="event.stopPropagation(); sendToBench('${game.id}')" title="Move to Byes / Staging" class="p-1 text-amber-400 hover:text-amber-300 rounded hover:bg-slate-800">
+              <i class="ph-bold ph-pause text-xs"></i>
+            </button>
+            <button onclick="event.stopPropagation(); deleteGame('${game.id}')" title="Delete Game" class="p-1 text-rose-400 hover:text-rose-300 rounded hover:bg-slate-800">
+              <i class="ph-bold ph-trash text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between font-bold text-xs text-white my-0.5">
+          <span class="truncate flex-1 text-left ${isOpponentGuest(game.home) ? 'text-emerald-300 font-extrabold' : ''}" title="${escapeHtml(game.home)}">
+            ${escapeHtml(game.home)}
+          </span>
+          <span class="text-[10px] font-normal text-slate-400 px-2 italic">vs</span>
+          <span class="truncate flex-1 text-right ${isOpponentGuest(game.away) ? 'text-emerald-300 font-extrabold' : ''}" title="${escapeHtml(game.away)}">
+            ${escapeHtml(game.away)}
+          </span>
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-800/80">
+          <span class="flex items-center gap-1"><i class="ph-bold ph-arrows-out-cardinal text-slate-400"></i> Drag to move/swap</span>
+          <span class="font-medium text-slate-400">${game.field === 'BENCH' ? 'Unassigned' : game.field}</span>
+        </div>
+      `;
+
+      card.onclick = (e) => {
+        // avoid opening if clicking buttons
+        if (e.target.closest("button")) return;
+        editGame(game.id);
+      };
+
+      return card;
+    }
+
+    function renderBench() {
+      const bench = document.getElementById("benchDropZone");
+      bench.innerHTML = "";
+
+      const currentGames = scheduleData[currentWeek] || [];
+      const stagedGames = currentGames.filter(g => g.time === "BENCH" || g.field === "BENCH");
+
+      document.getElementById("stagedCount").innerText = stagedGames.length;
+
+      if (stagedGames.length === 0) {
+        bench.innerHTML = `
+          <div class="h-28 flex flex-col items-center justify-center text-center text-slate-400 text-xs gap-1 select-none pointer-events-none">
+            <i class="ph-bold ph-tray text-xl text-slate-400"></i>
+            <span>No byes or benched matches</span>
+            <span class="text-[10px] text-slate-400">Drag games here to hold for later</span>
+          </div>
+        `;
+        return;
+      }
+
+      stagedGames.forEach(g => {
+        const item = createGameCardElement(g);
+        bench.appendChild(item);
+      });
+    }
+
+    function renderBadges() {
+      const populate = (containerId, teams, divName) => {
+        const el = document.getElementById(containerId);
+        el.innerHTML = "";
+        teams.forEach(t => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.onclick = () => openAddGameModal('', '', divName, t);
+          btn.className = "text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-700/60 transition truncate max-w-[140px]";
+          btn.innerText = t;
+          btn.title = `Quick add matchup with ${t}`;
+          el.appendChild(btn);
+        });
+      };
+
+      populate("badgeList6U", LEAGUE_TEAMS["6U/7U"], "6U/7U");
+      populate("badgeList8U", LEAGUE_TEAMS["8U-11U"], "8U-11U");
+      populate("badgeList12U", LEAGUE_TEAMS["12U"], "12U");
+    }
+
+    function handleDragStart(e, gameId) {
+      draggedGameId = gameId;
+      e.dataTransfer.setData("text/plain", gameId);
+      e.dataTransfer.effectAllowed = "move";
+      setTimeout(() => {
+        if (e.target) e.target.classList.add("drag-ghost");
+      }, 0);
+    }
+
+    function handleDragEnd(e) {
+      draggedGameId = null;
+      if (e.target) e.target.classList.remove("drag-ghost");
+      document.querySelectorAll(".drag-over-slot").forEach(el => el.classList.remove("drag-over-slot"));
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const target = e.currentTarget;
+      if (!target.classList.contains("drag-over-slot")) {
+        target.classList.add("drag-over-slot");
+      }
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove("drag-over-slot");
+    }
+
+    function handleDropOnSlot(e, newTime, newField) {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-over-slot");
+      if (!draggedGameId) return;
+
+      const currentGames = scheduleData[currentWeek] || [];
+      const movingGameIndex = currentGames.findIndex(g => g.id === draggedGameId);
+      if (movingGameIndex === -1) return;
+
+      const existingGameInSlot = currentGames.find(g => g.time === newTime && g.field === newField && g.id !== draggedGameId);
+
+      if (existingGameInSlot) {
+        // Swap slots cleanly
+        const origTime = currentGames[movingGameIndex].time;
+        const origField = currentGames[movingGameIndex].field;
+
+        currentGames[movingGameIndex].time = newTime;
+        currentGames[movingGameIndex].field = newField;
+
+        existingGameInSlot.time = origTime;
+        existingGameInSlot.field = origField;
+
+        showToast(`Swapped: ${currentGames[movingGameIndex].home} with ${existingGameInSlot.home}`);
+      } else {
+        // Move to empty slot
+        currentGames[movingGameIndex].time = newTime;
+        currentGames[movingGameIndex].field = newField;
+        showToast(`Moved game to ${newField} at ${newTime}`);
+      }
+
+      saveScheduleState();
+    }
+
+    function handleDropOnBench(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove("drag-over-slot");
+      if (!draggedGameId) return;
+
+      sendToBench(draggedGameId);
+    }
+
+    function sendToBench(gameId) {
+      const currentGames = scheduleData[currentWeek] || [];
+      const g = currentGames.find(x => x.id === gameId);
+      if (g) {
+        g.time = "BENCH";
+        g.field = "BENCH";
+        showToast(`Moved ${g.home} vs ${g.away} to Byes / Staging`);
+        saveScheduleState();
+      }
+    }
+
+    function checkConflicts() {
+      const banner = document.getElementById("conflictAlertBanner");
+      const list = document.getElementById("conflictAlertList");
+      list.innerHTML = "";
+
+      const currentGames = (scheduleData[currentWeek] || []).filter(g => g.time !== "BENCH");
+      const conflicts = [];
+
+      // Check double-booking in same time slot
+      TIME_SLOTS.forEach(time => {
+        const gamesAtTime = currentGames.filter(g => g.time === time);
+        const teamCounts = {};
+
+        gamesAtTime.forEach(g => {
+          [g.home, g.away].forEach(team => {
+            if (!team || team === "Bye Team" || team === "TBD") return;
+            teamCounts[team] = (teamCounts[team] || 0) + 1;
+            if (teamCounts[team] === 2) {
+              conflicts.push(`Double-booking conflict: <strong>${team}</strong> is scheduled in two separate games at ${time} on Week ${currentWeek}!`);
+            }
+          });
+        });
+      });
+
+      // Check byes needing pairing
+      const staged = (scheduleData[currentWeek] || []).filter(g => g.time === "BENCH");
+      if (staged.length >= 2) {
+        conflicts.push(`Note: You have ${staged.length} games/teams waiting in Byes/Staging while slots may be open.`);
+      }
+
+      if (conflicts.length > 0) {
+        banner.classList.remove("hidden");
+        conflicts.forEach(msg => {
+          const item = document.createElement("p");
+          item.innerHTML = msg;
+          list.appendChild(item);
+        });
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    function openAddGameModal(slotTime = "", slotField = "", division = "6U/7U", defaultHome = "") {
+      const modal = document.getElementById("gameModal");
+      document.getElementById("modalTitle").innerHTML = `
+        <i class="ph-bold ph-calendar-plus text-blue-400"></i>
+        <span>Add Match / Opponent</span>
+      `;
+      document.getElementById("gameForm").reset();
+      document.getElementById("modalGameId").value = "";
+      document.getElementById("modalDeleteBtn").classList.add("hidden");
+
+      // Set division radio
+      const divRadios = document.getElementsByName("modalDivision");
+      for (const r of divRadios) {
+        r.checked = (r.value === division);
+      }
+
+      document.getElementById("modalWeekSelect").value = currentWeek;
+      if (slotTime) document.getElementById("modalTimeSelect").value = slotTime;
+      if (slotField) document.getElementById("modalFieldSelect").value = slotField;
+
+      updateTeamDropdownOptions();
+
+      if (defaultHome) {
+        const homeSelect = document.getElementById("modalHomeSelect");
+        homeSelect.value = defaultHome;
+      }
+
+      modal.classList.remove("hidden");
+    }
+
+    function editGame(gameId) {
+      const currentGames = scheduleData[currentWeek] || [];
+      const game = currentGames.find(g => g.id === gameId);
+      if (!game) return;
+
+      const modal = document.getElementById("gameModal");
+      document.getElementById("modalTitle").innerHTML = `
+        <i class="ph-bold ph-pencil-simple text-blue-400"></i>
+        <span>Edit Match Details</span>
+      `;
+      document.getElementById("modalGameId").value = game.id;
+      document.getElementById("modalDeleteBtn").classList.remove("hidden");
+
+      // Set division
+      const divRadios = document.getElementsByName("modalDivision");
+      for (const r of divRadios) {
+        r.checked = (r.value === game.division);
+      }
+
+      updateTeamDropdownOptions();
+
+      // Set home & away
+      setTeamSelectOrCustom("Home", game.home);
+      setTeamSelectOrCustom("Away", game.away);
+
+      document.getElementById("modalWeekSelect").value = currentWeek;
+      document.getElementById("modalTimeSelect").value = game.time;
+      document.getElementById("modalFieldSelect").value = game.field;
+      document.getElementById("modalNotes").value = game.notes || "";
+
+      modal.classList.remove("hidden");
+    }
+
+    function closeGameModal() {
+      document.getElementById("gameModal").classList.add("hidden");
+    }
+
+    function getSelectedDivision() {
+      const radios = document.getElementsByName("modalDivision");
+      for (const r of radios) {
+        if (r.checked) return r.value;
+      }
+      return "6U/7U";
+    }
+
+    function updateTeamDropdownOptions() {
+      const division = getSelectedDivision();
+      const teams = LEAGUE_TEAMS[division] || [];
+
+      const homeSelect = document.getElementById("modalHomeSelect");
+      const awaySelect = document.getElementById("modalAwaySelect");
+
+      const options = [
+        `<option value="">-- Choose League Team --</option>`,
+        ...teams.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`),
+        `<option value="__CUSTOM__">➕ Enter Guest / Tournament Opponent...</option>`,
+        `<option value="Bye Team">-- Bye / Open Slot --</option>`
+      ].join("");
+
+      homeSelect.innerHTML = options;
+      awaySelect.innerHTML = options;
+
+      // Reset custom inputs visibility
+      document.getElementById("modalHomeCustom").classList.add("hidden");
+      document.getElementById("modalAwayCustom").classList.add("hidden");
+    }
+
+    function handleTeamSelectChange(type) {
+      const select = document.getElementById(`modal${type}Select`);
+      const customInput = document.getElementById(`modal${type}Custom`);
+
+      if (select.value === "__CUSTOM__") {
+        customInput.classList.remove("hidden");
+        customInput.focus();
+      } else {
+        customInput.classList.add("hidden");
+        customInput.value = "";
+      }
+    }
+
+    function setTeamSelectOrCustom(type, teamName) {
+      const select = document.getElementById(`modal${type}Select`);
+      const customInput = document.getElementById(`modal${type}Custom`);
+      
+      const exists = Array.from(select.options).some(o => o.value === teamName);
+      if (exists) {
+        select.value = teamName;
+        customInput.classList.add("hidden");
+      } else {
+        select.value = "__CUSTOM__";
+        customInput.classList.remove("hidden");
+        customInput.value = teamName;
+      }
+    }
+
+    function saveGameModal(event) {
+      event.preventDefault();
+      const gameId = document.getElementById("modalGameId").value;
+      const division = getSelectedDivision();
+
+      const homeVal = document.getElementById("modalHomeSelect").value;
+      const homeTeam = homeVal === "__CUSTOM__" ? document.getElementById("modalHomeCustom").value.trim() : homeVal;
+
+      const awayVal = document.getElementById("modalAwaySelect").value;
+      const awayTeam = awayVal === "__CUSTOM__" ? document.getElementById("modalAwayCustom").value.trim() : awayVal;
+
+      const targetWeek = parseInt(document.getElementById("modalWeekSelect").value, 10);
+      const time = document.getElementById("modalTimeSelect").value;
+      const field = document.getElementById("modalFieldSelect").value;
+      const notes = document.getElementById("modalNotes").value.trim();
+
+      if (!homeTeam || !awayTeam) {
+        showToast("Please choose or type both Home and Away teams.", "warn");
+        return;
+      }
+
+      if (!scheduleData[targetWeek]) {
+        scheduleData[targetWeek] = [];
+      }
+
+      if (gameId) {
+        // Edit existing
+        // Check if week changed
+        let found = false;
+        for (let w = 1; w <= 8; w++) {
+          const idx = (scheduleData[w] || []).findIndex(g => g.id === gameId);
+          if (idx !== -1) {
+            const [gameObj] = scheduleData[w].splice(idx, 1);
+            gameObj.division = division;
+            gameObj.home = homeTeam;
+            gameObj.away = awayTeam;
+            gameObj.time = time;
+            gameObj.field = field;
+            gameObj.notes = notes;
+            scheduleData[targetWeek].push(gameObj);
+            found = true;
+            break;
+          }
+        }
+        showToast("Game updated successfully!");
+      } else {
+        // Create new
+        const newGame = {
+          id: `g_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          division,
+          home: homeTeam,
+          away: awayTeam,
+          time,
+          field,
+          notes
+        };
+        scheduleData[targetWeek].push(newGame);
+        showToast("New game scheduled!");
+      }
+
+      currentWeek = targetWeek;
+      closeGameModal();
+      saveScheduleState();
+    }
+
+    function deleteGame(gameId) {
+      const currentGames = scheduleData[currentWeek] || [];
+      const idx = currentGames.findIndex(g => g.id === gameId);
+      if (idx !== -1) {
+        const removed = currentGames.splice(idx, 1)[0];
+        saveScheduleState();
+        showToast(`Removed matchup: ${removed.home} vs ${removed.away}`);
+      }
+    }
+
+    function deleteCurrentModalGame() {
+      const gameId = document.getElementById("modalGameId").value;
+      if (gameId) {
+        deleteGame(gameId);
+        closeGameModal();
+      }
+    }
+
+    function autoFillRoundRobin() {
+      // Rotates matchups for remaining weeks to help user visualize full slate
+      const confirmed = window.confirm ? confirm("Auto-generate suggested matchups for Weeks 4 through 7 based on league divisions? (Existing Weeks 1-3 will remain untouched)") : true;
+      if (!confirmed) return;
+
+      // 6U/7U Rotation
+      const t6 = LEAGUE_TEAMS["6U/7U"];
+      // 12U Rotation
+      const t12 = LEAGUE_TEAMS["12U"];
+      // 8U-11U
+      const t8 = LEAGUE_TEAMS["8U-11U"];
+
+      // Seed Week 4
+      scheduleData[4] = [
+        { id: "g_4_1", home: t6[0], away: t6[2], division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "Div Match" },
+        { id: "g_4_2", home: t6[1], away: t6[3], division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "Div Match" },
+        { id: "g_4_3", home: t8[0], away: t8[3], division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "Interdiv" },
+        { id: "g_4_4", home: t8[1], away: t8[4], division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_4_5", home: t12[0], away: t12[3], division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U Match" },
+        { id: "g_4_6", home: t8[2], away: t8[5], division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_4_7", home: t12[1], away: t12[2], division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U Match" }
+      ];
+
+      // Seed Week 5
+      scheduleData[5] = [
+        { id: "g_5_1", home: t6[0], away: t6[3], division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "Div Match" },
+        { id: "g_5_2", home: t6[1], away: t6[2], division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "Div Match" },
+        { id: "g_5_3", home: t8[1], away: t8[2], division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "Interdiv" },
+        { id: "g_5_4", home: t8[0], away: t8[5], division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_5_5", home: t12[0], away: t12[1], division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U Rematch" },
+        { id: "g_5_6", home: t8[3], away: t8[4], division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_5_7", home: t12[2], away: t12[3], division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U Match" }
+      ];
+
+      // Seed Week 6
+      scheduleData[6] = [
+        { id: "g_6_1", home: t6[0], away: t6[1], division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "7U Rematch" },
+        { id: "g_6_2", home: t6[2], away: t6[3], division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "6U Rematch" },
+        { id: "g_6_3", home: t8[0], away: t8[4], division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "Interdiv" },
+        { id: "g_6_4", home: t8[1], away: t8[5], division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_6_5", home: t12[0], away: t12[2], division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U Match" },
+        { id: "g_6_6", home: t8[2], away: t8[3], division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "Interdiv" },
+        { id: "g_6_7", home: t12[1], away: t12[3], division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U Match" }
+      ];
+
+      // Seed Week 7 (Rivalry Week before Playoffs)
+      scheduleData[7] = [
+        { id: "g_7_1", home: t6[1], away: t6[3], division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "Regular Season Finale" },
+        { id: "g_7_2", home: t6[0], away: t6[2], division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "Regular Season Finale" },
+        { id: "g_7_3", home: t8[0], away: t8[1], division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "8-9U Showcase" },
+        { id: "g_7_4", home: t8[4], away: t8[5], division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "Ruthless Club Rivalry" },
+        { id: "g_7_5", home: t12[0], away: t12[1], division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "Spartans Derby (Gold vs Black)" },
+        { id: "g_7_6", home: t8[2], away: t8[3], division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "10-11U Clash" },
+        { id: "g_7_7", home: t12[2], away: t12[3], division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U Match" }
+      ];
+
+      // Seed Week 8 Playoffs Template
+      scheduleData[8] = [
+        { id: "g_8_1", home: "6U/7U Seed #1", away: "6U/7U Seed #2", division: "6U/7U", time: "5:30 PM", field: "Discovery 1", notes: "Championship" },
+        { id: "g_8_2", home: "6U/7U Seed #3", away: "6U/7U Seed #4", division: "6U/7U", time: "5:30 PM", field: "Discovery 2", notes: "Bronze Game" },
+        { id: "g_8_3", home: "8U-11U Semifinal A", away: "8U-11U Semifinal B", division: "8U-11U", time: "6:30 PM", field: "Discovery 1", notes: "Semifinal" },
+        { id: "g_8_4", home: "8U-11U Consolation A", away: "8U-11U Consolation B", division: "8U-11U", time: "6:30 PM", field: "Discovery 2", notes: "Consolation" },
+        { id: "g_8_5", home: "12U Seed #1", away: "12U Seed #4", division: "12U", time: "7:30 PM", field: "Discovery 1", notes: "12U Semifinal 1" },
+        { id: "g_8_6", home: "8U-11U Championship", away: "Finalist", division: "8U-11U", time: "7:30 PM", field: "Discovery 2", notes: "8-11U Title Game" },
+        { id: "g_8_7", home: "12U Seed #2", away: "12U Seed #3", division: "12U", time: "8:30 PM", field: "Discovery 1", notes: "12U Semifinal 2" }
+      ];
+
+      saveScheduleState();
+      showToast("Generated full rotation templates for Weeks 4 through 8!");
+    }
+
+    function switchWeek(weekNum) {
+      currentWeek = weekNum;
+      render();
+    }
+
+    function resetToOfficial() {
+      const msg = "Reset all weeks back to original Weeks 1-3 baseline?";
+      if (window.confirm && !confirm(msg)) return;
+      scheduleData = getInitialSchedule();
+      saveScheduleState();
+      showToast("Reset to original league baseline.");
+    }
+
+    function exportCSV() {
+      let csv = "Week,Date,Time,Field,Division,Home Team,Away Team,Notes\n";
+
+      WEEKS_METADATA.forEach(w => {
+        const games = scheduleData[w.num] || [];
+        games.forEach(g => {
+          csv += `"${w.label}","${w.date}","${g.time}","${g.field}","${g.division || ''}","${g.home}","${g.away}","${g.notes || ''}"\n`;
+        });
+      });
+
+      downloadFile(csv, "Friday_Night_Flag_Schedule_Full.csv", "text/csv;charset=utf-8;");
+      showToast("CSV schedule downloaded!");
+    }
+
+    function exportJSON() {
+      const json = JSON.stringify(scheduleData, null, 2);
+      downloadFile(json, "flag_football_schedule_backup.json", "application/json");
+      showToast("Backup JSON file exported!");
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed && typeof parsed === "object") {
+            scheduleData = parsed;
+            saveScheduleState();
+            showToast("Schedule successfully restored from file!");
+          }
+        } catch (err) {
+          showToast("Invalid JSON file provided.", "warn");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    function downloadFile(content, fileName, contentType) {
+      const blob = new Blob([content], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function showToast(message, type = "success") {
+      const toast = document.getElementById("toastMessage");
+      const icon = document.getElementById("toastIcon");
+      const text = document.getElementById("toastText");
+
+      text.innerText = message;
+      if (type === "warn") {
+        icon.className = "ph-bold ph-warning text-amber-400 text-lg";
+      } else {
+        icon.className = "ph-bold ph-check-circle text-emerald-400 text-lg";
+      }
+
+      toast.classList.remove("translate-y-20", "opacity-0");
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 3200);
+    }
+
+    function isOpponentGuest(teamName) {
+      if (!teamName) return false;
+      const allKnown = Object.values(LEAGUE_TEAMS).flat();
+      return !allKnown.includes(teamName) && teamName !== "Bye Team" && !teamName.includes("Seed");
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Initial boot
+    window.onload = () => {
+      render();
+    };
+  </script>
+</body>
+</html>
